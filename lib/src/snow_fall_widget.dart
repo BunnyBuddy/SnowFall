@@ -44,8 +44,13 @@ class SnowFallAnimation extends StatefulWidget {
   State<SnowFallAnimation> createState() => _SnowFallAnimationState();
 }
 
-class _SnowFallAnimationState extends State<SnowFallAnimation>
-    with TickerProviderStateMixin {
+class _SnowFallAnimationState extends State<SnowFallAnimation> with TickerProviderStateMixin {
+  bool _stopSnowfall = false;
+
+  void stopSnowfall() {
+    setState(() => _stopSnowfall = true);
+  }
+
   late List<Snowflake> fallingSnow = [];
   late List<AccumulatedSnowflake> oldAccumulatedSnow = [];
   late List<AccumulatedSnowflake> newAccumulatedSnow = [];
@@ -79,8 +84,7 @@ class _SnowFallAnimationState extends State<SnowFallAnimation>
 
   void _startAccumulationCycle() {
     _accumulationTimer?.cancel();
-    _accumulationTimer =
-        Timer.periodic(widget.config.accumulationDuration, (_) {
+    _accumulationTimer = Timer.periodic(widget.config.accumulationDuration, (_) {
       _startCleanup();
     });
   }
@@ -119,31 +123,35 @@ class _SnowFallAnimationState extends State<SnowFallAnimation>
       // Update horizontal position with wind and swing
       if (widget.config.enableSnowDrift) {
         snowflake.swingValue += 0.02 * widget.config.rotationSpeed;
-        snowflake.x += sin(snowflake.swingValue) *
-            snowflake.swing *
-            widget.config.swingRange;
+        snowflake.x += sin(snowflake.swingValue) * snowflake.swing * widget.config.swingRange;
       }
 
       // Add wind force
       snowflake.x += widget.config.windForce * 0.1;
 
       // Update rotation
-      snowflake.rotation +=
-          0.01 * snowflake.velocity * widget.config.rotationSpeed;
+      snowflake.rotation += 0.01 * snowflake.velocity * widget.config.rotationSpeed;
 
       // Check for accumulation or reset
-      if (widget.config.holdSnowAtBottom &&
-          snowflake.y > size.height - _getSnowHeightAt(snowflake.x)) {
-        if (!isCleaningUp ||
-            newAccumulatedSnow.length < widget.config.numberOfSnowflakes) {
+      if (widget.config.holdSnowAtBottom && snowflake.y > size.height - _getSnowHeightAt(snowflake.x)) {
+        if (!isCleaningUp || newAccumulatedSnow.length < widget.config.numberOfSnowflakes) {
           _accumulateSnow(snowflake);
         }
         // Use the safe reset method that includes emoji list
         snowflake.reset(_random, size, widget.config.customEmojis);
       } else if (snowflake.y > size.height) {
-        // Use the safe reset method that includes emoji list
-        snowflake.reset(_random, size, widget.config.customEmojis);
+        if (_stopSnowfall) {
+          // Do NOT reset — let it disappear permanently
+          snowflake.y = size.height + 200; // push fully out of view
+        } else {
+          snowflake.reset(_random, size, widget.config.customEmojis);
+        }
       }
+      /// old method
+      // else if (snowflake.y > size.height) {
+      //   // Use the safe reset method that includes emoji list
+      //   snowflake.reset(_random, size, widget.config.customEmojis);
+      // }
 
       // Keep within bounds
       if (snowflake.x > size.width) {
@@ -152,18 +160,19 @@ class _SnowFallAnimationState extends State<SnowFallAnimation>
         snowflake.x = size.width;
       }
     }
+
+    if (_stopSnowfall) {
+      fallingSnow.removeWhere((s) => s.y > size.height + 150);
+    }
   }
 
   double _getSnowHeightAt(double x) {
     if (!widget.config.holdSnowAtBottom) return 0;
 
-    double newHeight = widget.config.maxSnowHeight *
-        (newAccumulatedSnow.length / widget.config.numberOfSnowflakes);
+    double newHeight = widget.config.maxSnowHeight * (newAccumulatedSnow.length / widget.config.numberOfSnowflakes);
 
     if (isCleaningUp) {
-      double oldHeight = widget.config.maxSnowHeight *
-          (oldAccumulatedSnow.length / widget.config.numberOfSnowflakes) *
-          (1 - _cleanupController.value);
+      double oldHeight = widget.config.maxSnowHeight * (oldAccumulatedSnow.length / widget.config.numberOfSnowflakes) * (1 - _cleanupController.value);
       return max(newHeight, oldHeight);
     }
 
