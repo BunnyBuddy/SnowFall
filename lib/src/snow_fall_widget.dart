@@ -46,10 +46,10 @@ class SnowFallAnimation extends StatefulWidget {
   });
 
   @override
-  State<SnowFallAnimation> createState() => SnowFallAnimationState();
+  State<SnowFallAnimation> createState() => _SnowFallAnimationState();
 }
 
-class SnowFallAnimationState extends State<SnowFallAnimation> with TickerProviderStateMixin {
+class _SnowFallAnimationState extends State<SnowFallAnimation> with TickerProviderStateMixin {
   bool _stopSnowfall = false;
   bool _paused = false;
   late List<Snowflake> fallingSnow = [];
@@ -61,7 +61,6 @@ class SnowFallAnimationState extends State<SnowFallAnimation> with TickerProvide
   Size size = Size.zero;
   final Random _random = Random();
   bool isCleaningUp = false;
-
 
   void stopSnowfall() {
     setState(() => _stopSnowfall = true);
@@ -87,7 +86,7 @@ class SnowFallAnimationState extends State<SnowFallAnimation> with TickerProvide
       _paused = false;
       fallingSnow = List.generate(
         widget.config.numberOfSnowflakes,
-            (_) => Snowflake.generate(size, _random, widget.config),
+        (_) => Snowflake.generate(size, _random, widget.config),
       );
       _fallController.repeat();
     });
@@ -115,7 +114,7 @@ class SnowFallAnimationState extends State<SnowFallAnimation> with TickerProvide
     }
   }
 
-  void bindControllerMethods(){
+  void bindControllerMethods() {
     widget.controller?.stopCallback = stopSnowfall;
     widget.controller?.pauseCallback = pauseSnowfall;
     widget.controller?.resumeCallback = resumeSnowfall;
@@ -200,6 +199,7 @@ class SnowFallAnimationState extends State<SnowFallAnimation> with TickerProvide
           snowflake.reset(_random, size, widget.config.customEmojis);
         }
       }
+
       /// old method
       // else if (snowflake.y > size.height) {
       //   // Use the safe reset method that includes emoji list
@@ -263,7 +263,7 @@ class SnowFallAnimationState extends State<SnowFallAnimation> with TickerProvide
           animation: Listenable.merge([_fallController, _cleanupController]),
           builder: (context, child) {
             _updateSnowflakes();
-            return CustomPaint(
+            Widget painted = CustomPaint(
               painter: SnowPainter(
                 fallingSnow: fallingSnow,
                 oldAccumulatedSnow: oldAccumulatedSnow,
@@ -274,6 +274,10 @@ class SnowFallAnimationState extends State<SnowFallAnimation> with TickerProvide
               ),
               size: Size.infinite,
             );
+            if (widget.config.ignoreTouch) {
+              painted = IgnorePointer(child: painted);
+            }
+            return painted;
           },
         );
       },

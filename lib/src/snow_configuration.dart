@@ -38,6 +38,7 @@ class SnowfallConfig {
     this.windForce = 0.0,
     this.enableRandomSize = true,
     this.enableRandomOpacity = true,
+    this.ignoreTouch = true,
     this.minOpacity = 0.5,
     this.maxOpacity = 1.0,
   });
@@ -53,6 +54,12 @@ class SnowfallConfig {
   /// Values greater than 1.0 increase speed, less than 1.0 decrease it.
   /// Default is 1.0.
   final double speed;
+
+  /// If true, it ignores taps on the snowflakes.
+  ///
+  /// Can either be true or false.
+  /// Default is true.
+  final bool ignoreTouch;
 
   /// Whether to use emoji characters for snowflakes.
   ///
