@@ -41,10 +41,10 @@ class SnowFallAnimation extends StatefulWidget {
   });
 
   @override
-  State<SnowFallAnimation> createState() => _SnowFallAnimationState();
+  State<SnowFallAnimation> createState() => SnowFallAnimationState();
 }
 
-class _SnowFallAnimationState extends State<SnowFallAnimation> with TickerProviderStateMixin {
+class SnowFallAnimationState extends State<SnowFallAnimation> with TickerProviderStateMixin {
   bool _stopSnowfall = false;
 
   void stopSnowfall() {
