@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:snow_fall_animation/snow_fall_animation.dart';
 import 'package:snow_fall_animation/src/snow_fall_painter.dart';
+import 'package:snow_fall_animation/src/snowfall_controller.dart';
 
 /// A widget that renders customizable snow fall animation.
 ///
@@ -31,12 +32,16 @@ class SnowFallAnimation extends StatefulWidget {
   /// * Accumulation behavior
   final SnowfallConfig config;
 
+  // Use this snowfall controller so you can stop snowfall at will
+  final SnowfallController? controller;
+
   /// Creates a snow fall animation widget.
   ///
   /// The [config] parameter can be used to customize the animation properties.
   /// If not provided, default configuration will be used.
   const SnowFallAnimation({
     super.key,
+    this.controller,
     this.config = const SnowfallConfig(),
   });
 
@@ -46,11 +51,7 @@ class SnowFallAnimation extends StatefulWidget {
 
 class SnowFallAnimationState extends State<SnowFallAnimation> with TickerProviderStateMixin {
   bool _stopSnowfall = false;
-
-  void stopSnowfall() {
-    setState(() => _stopSnowfall = true);
-  }
-
+  bool _paused = false;
   late List<Snowflake> fallingSnow = [];
   late List<AccumulatedSnowflake> oldAccumulatedSnow = [];
   late List<AccumulatedSnowflake> newAccumulatedSnow = [];
@@ -61,13 +62,64 @@ class SnowFallAnimationState extends State<SnowFallAnimation> with TickerProvide
   final Random _random = Random();
   bool isCleaningUp = false;
 
+
+  void stopSnowfall() {
+    setState(() => _stopSnowfall = true);
+  }
+
+  void pauseSnowfall() {
+    setState(() {
+      _paused = true;
+      _fallController.stop();
+    });
+  }
+
+  void resumeSnowfall() {
+    setState(() {
+      _paused = false;
+      _fallController.repeat();
+    });
+  }
+
+  void startSnowfall() {
+    setState(() {
+      _stopSnowfall = false;
+      _paused = false;
+      fallingSnow = List.generate(
+        widget.config.numberOfSnowflakes,
+            (_) => Snowflake.generate(size, _random, widget.config),
+      );
+      _fallController.repeat();
+    });
+  }
+
   @override
   void initState() {
     super.initState();
+    bindControllerMethods();
     _initializeControllers();
     if (widget.config.holdSnowAtBottom) {
       _startAccumulationCycle();
     }
+  }
+
+  @override
+  void didUpdateWidget(covariant SnowFallAnimation oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (widget.controller != oldWidget.controller) {
+      widget.controller?.stopCallback = stopSnowfall;
+      widget.controller?.pauseCallback = pauseSnowfall;
+      widget.controller?.resumeCallback = resumeSnowfall;
+      widget.controller?.startCallback = startSnowfall;
+    }
+  }
+
+  void bindControllerMethods(){
+    widget.controller?.stopCallback = stopSnowfall;
+    widget.controller?.pauseCallback = pauseSnowfall;
+    widget.controller?.resumeCallback = resumeSnowfall;
+    widget.controller?.startCallback = startSnowfall;
   }
 
   void _initializeControllers() {
@@ -116,6 +168,7 @@ class SnowFallAnimationState extends State<SnowFallAnimation> with TickerProvide
   }
 
   void _updateSnowflakes() {
+    if (_paused) return;
     for (var snowflake in fallingSnow) {
       // Update vertical position
       snowflake.y += snowflake.velocity * widget.config.speed;
@@ -163,6 +216,9 @@ class SnowFallAnimationState extends State<SnowFallAnimation> with TickerProvide
 
     if (_stopSnowfall) {
       fallingSnow.removeWhere((s) => s.y > size.height + 150);
+    }
+    if (_stopSnowfall && fallingSnow.isEmpty) {
+      _fallController.stop();
     }
   }
 
