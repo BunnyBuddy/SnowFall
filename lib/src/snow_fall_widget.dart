@@ -63,24 +63,36 @@ class _SnowFallAnimationState extends State<SnowFallAnimation> with TickerProvid
   bool isCleaningUp = false;
 
   void stopSnowfall() {
-    setState(() => _stopSnowfall = true);
+    if (!mounted) return;
+    setState(() {
+      _stopSnowfall = true;
+      _accumulationTimer?.cancel();
+      isCleaningUp = false;
+      oldAccumulatedSnow.clear();
+      newAccumulatedSnow.clear();
+    });
   }
 
   void pauseSnowfall() {
+    if (!mounted) return;
     setState(() {
       _paused = true;
       _fallController.stop();
+      _cleanupController.stop();
     });
   }
 
   void resumeSnowfall() {
+    if (!mounted) return;
     setState(() {
       _paused = false;
       _fallController.repeat();
+      _cleanupController.forward();
     });
   }
 
   void startSnowfall() {
+    if (!mounted) return;
     setState(() {
       _stopSnowfall = false;
       _paused = false;
@@ -90,6 +102,11 @@ class _SnowFallAnimationState extends State<SnowFallAnimation> with TickerProvid
       );
       _fallController.repeat();
     });
+    if (widget.config.holdSnowAtBottom) {
+      oldAccumulatedSnow.clear();
+      newAccumulatedSnow.clear();
+      _startAccumulationCycle();
+    }
   }
 
   @override
@@ -105,12 +122,8 @@ class _SnowFallAnimationState extends State<SnowFallAnimation> with TickerProvid
   @override
   void didUpdateWidget(covariant SnowFallAnimation oldWidget) {
     super.didUpdateWidget(oldWidget);
-
     if (widget.controller != oldWidget.controller) {
-      widget.controller?.stopCallback = stopSnowfall;
-      widget.controller?.pauseCallback = pauseSnowfall;
-      widget.controller?.resumeCallback = resumeSnowfall;
-      widget.controller?.startCallback = startSnowfall;
+      bindControllerMethods();
     }
   }
 
@@ -160,6 +173,11 @@ class _SnowFallAnimationState extends State<SnowFallAnimation> with TickerProvid
 
   @override
   void dispose() {
+    widget.controller?.stopCallback = null;
+    widget.controller?.pauseCallback = null;
+    widget.controller?.resumeCallback = null;
+    widget.controller?.startCallback = null;
+
     _fallController.dispose();
     _cleanupController.dispose();
     _accumulationTimer?.cancel();
@@ -167,7 +185,7 @@ class _SnowFallAnimationState extends State<SnowFallAnimation> with TickerProvid
   }
 
   void _updateSnowflakes() {
-    if (_paused) return;
+    if (_paused && !_stopSnowfall) return;
     for (var snowflake in fallingSnow) {
       // Update vertical position
       snowflake.y += snowflake.velocity * widget.config.speed;
@@ -252,31 +270,38 @@ class _SnowFallAnimationState extends State<SnowFallAnimation> with TickerProvid
       builder: (context, constraints) {
         size = Size(constraints.maxWidth, constraints.maxHeight);
 
-        if (fallingSnow.isEmpty) {
-          fallingSnow = List.generate(
-            widget.config.numberOfSnowflakes,
-            (_) => Snowflake.generate(size, _random, widget.config),
-          );
+        // generate snowflakes *once* after we know actual size (and off the synchronous build)
+        if (fallingSnow.isEmpty && size.width > 0 && size.height > 0) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            setState(() {
+              fallingSnow = List.generate(
+                widget.config.numberOfSnowflakes,
+                (_) => Snowflake.generate(size, _random, widget.config),
+              );
+            });
+          });
         }
 
         return AnimatedBuilder(
           animation: Listenable.merge([_fallController, _cleanupController]),
           builder: (context, child) {
             _updateSnowflakes();
-            Widget painted = CustomPaint(
-              painter: SnowPainter(
-                fallingSnow: fallingSnow,
-                oldAccumulatedSnow: oldAccumulatedSnow,
-                newAccumulatedSnow: newAccumulatedSnow,
-                config: widget.config,
-                cleanupProgress: _cleanupController.value,
-                isCleaningUp: isCleaningUp,
+            Widget painted = RepaintBoundary(
+              child: CustomPaint(
+                painter: SnowPainter(
+                  fallingSnow: fallingSnow,
+                  oldAccumulatedSnow: oldAccumulatedSnow,
+                  newAccumulatedSnow: newAccumulatedSnow,
+                  config: widget.config,
+                  cleanupProgress: _cleanupController.value,
+                  isCleaningUp: isCleaningUp,
+                ),
+                size: Size.infinite,
               ),
-              size: Size.infinite,
             );
-            if (widget.config.ignoreTouch) {
-              painted = IgnorePointer(child: painted);
-            }
+            if (widget.config.ignoreTouch) painted = IgnorePointer(child: painted);
+            painted = RepaintBoundary(child: painted);
             return painted;
           },
         );
