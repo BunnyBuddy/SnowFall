@@ -59,13 +59,10 @@ Add `snow_fall_animation` to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  snow_fall_animation: ^0.0.1+2
-```
-
-Or install via command line:
-
-```bash
-flutter pub add snow_fall_animation
+  snow_fall_animation:
+    git:
+      url: https://github.com/BunnyBuddy/SnowFall
+      ref: main
 ```
 
 ### Basic Usage
@@ -110,6 +107,87 @@ class MyApp extends StatelessWidget {
     );
   }
 }
+```
+
+### Advanced Usage
+
+```dart
+import 'package:snow_fall_animation/snow_fall_animation.dart';
+
+class MyApp extends StatefulWidget {
+  const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+  
+class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
+  final snow = SnowfallController();
+  Timer? stopTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // you can assign a timer or you can call any method on the snow controller whenever you like.
+    stopTimer = Timer(Duration(seconds: 2), () {
+      if (mounted) snow.stop();
+    });
+  }
+
+  @override
+  void dispose() {
+    stopTimer?.cancel();
+    snow.stop();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          // Your background
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.blue[900]!,
+                  Colors.blue[700]!,
+                ],
+              ),
+            ),
+          ),
+
+          // Snow fall animation
+          SnowFallAnimation(
+            controller: snow, // add the controller here
+            config: SnowfallConfig(
+              numberOfSnowflakes: 200,
+              speed: 1.0,
+              useEmoji: true,
+              customEmojis: ['❄️', '❅', '❆'],
+            ),
+          ),
+
+          // Your content
+          YourContent(),
+        ],
+      ),
+    );
+  }
+}
+```
+
+# Controller Methods
+``` dart
+
+snow.stop() // call this to stop snowfall naturally
+snow.pause() // call this to freeze snow mid air
+snow.resume() // call this to resume the snow fall
+snow.start() // call this to start from scratch
+
 ```
 
 ## Configuration Properties
@@ -288,7 +366,3 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 5. Submit a pull request
 
 ---
-
-## Visitors Count
-
-<img align="left" src = "https://profile-counter.glitch.me/SnowFall/count.svg" alt ="Loading">
